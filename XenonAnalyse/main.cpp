@@ -85,12 +85,19 @@ void ReadTable(Image& image, SwitchTable& table)
 {
     uint32_t pOffset;
     ppc_insn insn;
+    //this one for gta v and watch dogs
     auto* code = (uint32_t*)image.Find(table.base);
-    ppc::Disassemble(code, table.base, insn);
-    pOffset = insn.operands[1] << 16;
+    ppc::Disassemble(code, table.base, insn);           // lis
+    pOffset = insn.operands[1] << 16;                   // Upper 16 bits
 
-    ppc::Disassemble(code + 1, table.base + 4, insn);
-    pOffset += insn.operands[2];
+    ppc::Disassemble(code + 2, table.base + 8, insn);   // addi (skip rlwinm at +4)
+    pOffset += insn.operands[2];                        // Lower 16 bits
+    // auto* code = (uint32_t*)image.Find(table.base);
+    // ppc::Disassemble(code, table.base, insn);
+    // pOffset = insn.operands[1] << 16;
+    //
+    // ppc::Disassemble(code + 1, table.base + 4, insn);
+    // pOffset += insn.operands[2];
 
     if (table.type == SWITCH_ABSOLUTE)
     {
@@ -312,11 +319,57 @@ int main(int argc, char** argv)
             }
         };
 
+    // uint32_t absoluteSwitch[] =
+    // {
+    //     PPC_INST_LIS,
+    //     PPC_INST_RLWINM, //en gta 5 y otros juegos, esto es rlwinm
+    //     PPC_INST_ADDI, //en gta 5 y otros juegesog esto es adi
+    //     //PPC_INST_ADDI,
+    //     //PPC_INST_RLWINM,
+    //     PPC_INST_LWZX,
+    //     PPC_INST_MTCTR,
+    //     PPC_INST_BCTR,
+    // };
+    //
+    // uint32_t computedSwitch[] = //buscar en gta 5
+    // {
+    //     PPC_INST_LIS,
+    //     PPC_INST_ADDI,
+    //     PPC_INST_LBZX,
+    //     PPC_INST_RLWINM,
+    //     PPC_INST_LIS,
+    //     PPC_INST_ADDI,
+    //     PPC_INST_ADD,
+    //     PPC_INST_MTCTR,
+    // };
+    //
+    // uint32_t offsetSwitch[] = //buscar en gta 5
+    // {
+    //     PPC_INST_LIS,
+    //     PPC_INST_ADDI,
+    //     PPC_INST_LBZX,
+    //     PPC_INST_LIS,
+    //     PPC_INST_ADDI,
+    //     PPC_INST_ADD,
+    //     PPC_INST_MTCTR,
+    // };
+    //
+    // uint32_t wordOffsetSwitch[] = //es esto necesario?
+    // {
+    //     PPC_INST_LIS,
+    //     PPC_INST_ADDI,
+    //     PPC_INST_RLWINM,
+    //     PPC_INST_LHZX,
+    //     PPC_INST_LIS,
+    //     PPC_INST_ADDI,
+    //     PPC_INST_ADD,
+    //     PPC_INST_MTCTR,
+    // };
     uint32_t absoluteSwitch[] =
-    {
+{
         PPC_INST_LIS,
-        PPC_INST_ADDI,
         PPC_INST_RLWINM,
+        PPC_INST_ADDI,
         PPC_INST_LWZX,
         PPC_INST_MTCTR,
         PPC_INST_BCTR,
@@ -329,6 +382,7 @@ int main(int argc, char** argv)
         PPC_INST_LBZX,
         PPC_INST_RLWINM,
         PPC_INST_LIS,
+        PPC_INST_NOP, //
         PPC_INST_ADDI,
         PPC_INST_ADD,
         PPC_INST_MTCTR,
@@ -340,7 +394,9 @@ int main(int argc, char** argv)
         PPC_INST_ADDI,
         PPC_INST_LBZX,
         PPC_INST_LIS,
+        PPC_INST_NOP, //
         PPC_INST_ADDI,
+        PPC_INST_NOP, //
         PPC_INST_ADD,
         PPC_INST_MTCTR,
     };
@@ -348,11 +404,12 @@ int main(int argc, char** argv)
     uint32_t wordOffsetSwitch[] =
     {
         PPC_INST_LIS,
-        PPC_INST_ADDI,
-        PPC_INST_RLWINM,
+        PPC_INST_RLWINM, //
+        PPC_INST_ADDI, //
         PPC_INST_LHZX,
         PPC_INST_LIS,
         PPC_INST_ADDI,
+        PPC_INST_NOP, //
         PPC_INST_ADD,
         PPC_INST_MTCTR,
     };
