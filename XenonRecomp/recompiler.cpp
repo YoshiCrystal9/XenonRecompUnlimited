@@ -2347,11 +2347,11 @@ bool Recompiler::Recompile(
     case PPC_INST_VCTUXS:
     case PPC_INST_VCFPUXWS128:
         printSetFlushMode(true);
-        print("\tsimde_mm_store_si128((simde__m128i*){}.u32, _mm_vctuxs(", v(insn.operands[0]));
+        print("\tsimde_mm_store_si128((simde__m128i*){}.u32, simde_mm_vctuxs(", v(insn.operands[0])); //what (vctuxs)
         if (insn.operands[2] != 0)
-            println("_mm_mul_ps(_mm_load_ps({}.f32), _mm_set1_ps({}))));", v(insn.operands[1]), 1u << insn.operands[2]);
+            println("simde_mm_mul_ps(simde_mm_load_ps({}.f32), simde_mm_set1_ps({}))));", v(insn.operands[1]), 1u << insn.operands[2]);
         else
-            println("_mm_load_ps({}.f32)));", v(insn.operands[1]));
+            println("simde_mm_load_ps({}.f32)));", v(insn.operands[1]));
         break;
 
 
@@ -2702,8 +2702,8 @@ bool Recompiler::Recompile(
     case PPC_INST_VPKUHUM:
         // Pack without saturation - use shuffle to select lower bytes
         println("\tsimde_mm_store_si128((simde__m128i*){}.u8, _mm_packus_epi16("
-            "_mm_and_si128(simde_mm_load_si128((simde__m128i*){}.u16), _mm_set1_epi16(0xFF)), "
-            "_mm_and_si128(simde_mm_load_si128((simde__m128i*){}.u16), _mm_set1_epi16(0xFF))));",
+            "simde_mm_and_si128(simde_mm_load_si128((simde__m128i*){}.u16), _mm_set1_epi16(0xFF)), "
+            "simde_mm_and_si128(simde_mm_load_si128((simde__m128i*){}.u16), _mm_set1_epi16(0xFF))));",
             v(insn.operands[0]), v(insn.operands[2]), v(insn.operands[1]));
         break;
 
@@ -2794,12 +2794,12 @@ bool Recompiler::Recompile(
 
     case PPC_INST_VSEL:
     case PPC_INST_VSEL128:
-        println("\tsimde_mm_store_si128((simde__m128i*){}.u8, _mm_or_si128(_mm_andnot_si128(simde_mm_load_si128((simde__m128i*){}.u8), simde_mm_load_si128((simde__m128i*){}.u8)), _mm_and_si128(simde_mm_load_si128((simde__m128i*){}.u8), simde_mm_load_si128((simde__m128i*){}.u8))));", v(insn.operands[0]), v(insn.operands[3]), v(insn.operands[1]), v(insn.operands[3]), v(insn.operands[2]));
+        println("\tsimde_mm_store_si128((simde__m128i*){}.u8, simde_mm_or_si128(simde_mm_andnot_si128(simde_mm_load_si128((simde__m128i*){}.u8), simde_mm_load_si128((simde__m128i*){}.u8)), simde_mm_and_si128(simde_mm_load_si128((simde__m128i*){}.u8), simde_mm_load_si128((simde__m128i*){}.u8))));", v(insn.operands[0]), v(insn.operands[3]), v(insn.operands[1]), v(insn.operands[3]), v(insn.operands[2]));
         break;
 
 
     case PPC_INST_VSL:
-        println("\tsimde_mm_store_si128((simde__m128i*){}.u8, _mm_vsl(simde_mm_load_si128((simde__m128i*){}.u8), simde_mm_load_si128((simde__m128i*){}.u8)));",
+        println("\tsimde_mm_store_si128((simde__m128i*){}.u8, simde_mm_vsl(simde_mm_load_si128((simde__m128i*){}.u8), simde_mm_load_si128((simde__m128i*){}.u8)));",
             v(insn.operands[0]), v(insn.operands[1]), v(insn.operands[2]));
         break;
 
@@ -3156,10 +3156,12 @@ bool Recompiler::Recompile(
     case PPC_INST_LVX128:
     case PPC_INST_LVXL128:
     case PPC_INST_LVEHX: {
+        // NOTE: for endian swapping, we reverse the whole vector instead of individual elements.
+        // this is accounted for in every instruction (eg. dp3 sums yzw instead of xyz)
         print("\tsimde_mm_store_si128((simde__m128i*){}.u8, simde_mm_shuffle_epi8(simde_mm_load_si128((simde__m128i*)(base + ((", v(insn.operands[0]));
         if (insn.operands[1] != 0)
             print("{}.u32 + ", r(insn.operands[1]));
-        print("{}.u32) & ~0xF), VectorMaskL));\n", r(insn.operands[2]));
+        println("{}.u32) & ~0xF))), simde_mm_load_si128((simde__m128i*)VectorMaskL)));", r(insn.operands[2]));
         break;
 
 

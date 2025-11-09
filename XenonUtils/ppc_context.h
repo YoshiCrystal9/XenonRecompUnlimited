@@ -1,3 +1,24 @@
+#pragma once
+#include "ppc_config.h"
+
+#pragma once
+#include "ppc_config.h"
+
+#pragma once
+#include "ppc_config.h"
+
+#pragma once
+#include "ppc_config.h"
+
+#pragma once
+#include "ppc_config.h"
+
+#pragma once
+#include "ppc_config.h"
+
+#pragma once
+#include "ppc_config.h"
+
 #ifndef PPC_CONTEXT_H_INCLUDED
 #define PPC_CONTEXT_H_INCLUDED
 
@@ -11,10 +32,9 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-
-#include <x86/avx.h>
-#include <x86/sse.h>
-#include <x86/sse4.1.h>
+#include "../../tools/XenonRecomp/thirdparty/simde/x86/avx.h"
+#include "../../tools/XenonRecomp/thirdparty/simde/x86/sse.h"
+#include "../../tools/XenonRecomp/thirdparty/simde/x86/sse4.1.h"
 
 // SSE3 constants are missing from simde
 #ifndef _MM_DENORMALS_ZERO_MASK
@@ -28,6 +48,22 @@
 #define PPC_FUNC_IMPL(x) extern "C" PPC_FUNC(x)
 #define PPC_EXTERN_FUNC(x) extern PPC_FUNC(x)
 #define PPC_WEAK_FUNC(x) __attribute__((weak,noinline)) PPC_FUNC(x)
+
+#ifndef __builtin_assume
+#define __builtin_assume(x) do { if (!(x)) __builtin_unreachable(); } while(0)
+#endif
+
+#ifndef __builtin_rotateleft64
+#define __builtin_rotateleft64(x, n) (((x) << (n)) | ((x) >> (64 - (n))))
+#endif
+
+#ifndef __builtin_rotateleft32
+#define __builtin_rotateleft32(x, n) (((x) << (n)) | ((x) >> (32 - (n))))
+#endif
+
+#ifndef __builtin_debugtrap
+#define __builtin_debugtrap() __builtin_trap()
+#endif
 
 #define PPC_FUNC_PROLOGUE() __builtin_assume(((size_t)base & 0x1F) == 0)
 
@@ -49,7 +85,7 @@
 
 // TODO: Implement.
 // These are currently unused. However, MMIO loads could possibly be handled statically with some profiling and a fallback.
-// The fallback would be a runtime exception handler which will intercept reads from MMIO regions 
+// The fallback would be a runtime exception handler which will intercept reads from MMIO regions
 // and log the PC for compiling to static code later.
 #ifndef PPC_MM_LOAD_U8
 #define PPC_MM_LOAD_U8(x)  PPC_LOAD_U8 (x)
@@ -262,7 +298,7 @@ struct PPCFPSCRRegister
         csr = getcsr();
         return HostToGuest[(csr & RoundMask) >> RoundShift];
     }
-        
+
     inline void storeFromGuest(uint32_t value) noexcept
     {
         csr &= ~RoundMask;
@@ -681,6 +717,21 @@ inline simde__m128i simde_mm_vctsxs(simde__m128 src1)
     simde__m128 dest = simde_mm_blendv_ps(simde_mm_castsi128_ps(xmm0), simde_mm_castsi128_ps(simde_mm_set1_epi32(INT_MAX)), simde_mm_castsi128_ps(xmm1));
     return simde_mm_andnot_si128(simde_mm_castps_si128(xmm2), simde_mm_castps_si128(dest));
 }
+
+inline simde__m128i simde_mm_vctuxs(simde__m128 src1)
+{
+    simde__m128 xmm_nan = simde_mm_cmpunord_ps(src1, src1);
+    simde__m128i xi = simde_mm_cvttps_epi32(src1);
+    simde__m128i overflow_mask = simde_mm_cmpeq_epi32(xi, simde_mm_set1_epi32(INT_MIN));
+    simde__m128i pos_over = simde_mm_andnot_si128(simde_mm_castps_si128(src1), overflow_mask);
+    simde__m128i uimax = simde_mm_set1_epi32(-1);
+    simde__m128i xi_sat_over = simde_mm_blendv_epi8(xi, uimax, pos_over);
+    simde__m128 neg_mask_ps = simde_mm_cmplt_ps(src1, simde_mm_set1_ps(0.0f));
+    simde__m128i neg_mask = simde_mm_castps_si128(neg_mask_ps);
+    simde__m128i xi_nonneg = simde_mm_andnot_si128(neg_mask, xi_sat_over);
+    return simde_mm_andnot_si128(simde_mm_castps_si128(xmm_nan), xi_nonneg);
+}
+
 
 inline simde__m128i simde_mm_vsr(simde__m128i a, simde__m128i b)
 {
