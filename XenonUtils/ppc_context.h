@@ -19,6 +19,63 @@
 #pragma once
 #include "ppc_config.h"
 
+#pragma once
+#include "ppc_config.h"
+
+#pragma once
+#include "ppc_config.h"
+
+#pragma once
+#include "ppc_config.h"
+
+#pragma once
+#include "ppc_config.h"
+
+#pragma once
+#include "ppc_config.h"
+
+#pragma once
+#include "ppc_config.h"
+
+#pragma once
+#include "ppc_config.h"
+
+#pragma once
+#include "ppc_config.h"
+
+#pragma once
+#include "ppc_config.h"
+
+#pragma once
+#include "ppc_config.h"
+
+#pragma once
+#include "ppc_config.h"
+
+#pragma once
+#include "ppc_config.h"
+
+#pragma once
+#include "ppc_config.h"
+
+#pragma once
+#include "ppc_config.h"
+
+#pragma once
+#include "ppc_config.h"
+
+#pragma once
+#include "ppc_config.h"
+
+#pragma once
+#include "ppc_config.h"
+
+#pragma once
+#include "ppc_config.h"
+
+#pragma once
+#include "ppc_config.h"
+
 #ifndef PPC_CONTEXT_H_INCLUDED
 #define PPC_CONTEXT_H_INCLUDED
 
@@ -32,6 +89,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#define SIMDE_ENABLE_NATIVE_ALIASES
 #include "../../tools/XenonRecomp/thirdparty/simde/x86/avx.h"
 #include "../../tools/XenonRecomp/thirdparty/simde/x86/sse.h"
 #include "../../tools/XenonRecomp/thirdparty/simde/x86/sse4.1.h"
@@ -48,22 +106,6 @@
 #define PPC_FUNC_IMPL(x) extern "C" PPC_FUNC(x)
 #define PPC_EXTERN_FUNC(x) extern PPC_FUNC(x)
 #define PPC_WEAK_FUNC(x) __attribute__((weak,noinline)) PPC_FUNC(x)
-
-#ifndef __builtin_assume
-#define __builtin_assume(x) do { if (!(x)) __builtin_unreachable(); } while(0)
-#endif
-
-#ifndef __builtin_rotateleft64
-#define __builtin_rotateleft64(x, n) (((x) << (n)) | ((x) >> (64 - (n))))
-#endif
-
-#ifndef __builtin_rotateleft32
-#define __builtin_rotateleft32(x, n) (((x) << (n)) | ((x) >> (32 - (n))))
-#endif
-
-#ifndef __builtin_debugtrap
-#define __builtin_debugtrap() __builtin_trap()
-#endif
 
 #define PPC_FUNC_PROLOGUE() __builtin_assume(((size_t)base & 0x1F) == 0)
 
@@ -708,6 +750,13 @@ inline simde__m128i simde_mm_cmpgt_epu16(simde__m128i a, simde__m128i b)
     return simde_mm_cmpgt_epi16(simde_mm_xor_si128(a, c), simde_mm_xor_si128(b, c));
 }
 
+inline simde__m128i simde_mm_cmpgt_epu32(simde__m128i a, simde__m128i b)
+{
+    simde__m128i c = simde_mm_set1_epi32(int(0x80000000u));
+    return simde_mm_cmpgt_epi32(simde_mm_xor_si128(a, c), simde_mm_xor_si128(b, c));
+}
+
+
 inline simde__m128i simde_mm_vctsxs(simde__m128 src1)
 {
     simde__m128 xmm2 = simde_mm_cmpunord_ps(src1, src1);
@@ -720,16 +769,30 @@ inline simde__m128i simde_mm_vctsxs(simde__m128 src1)
 
 inline simde__m128i simde_mm_vctuxs(simde__m128 src1)
 {
-    simde__m128 xmm_nan = simde_mm_cmpunord_ps(src1, src1);
-    simde__m128i xi = simde_mm_cvttps_epi32(src1);
-    simde__m128i overflow_mask = simde_mm_cmpeq_epi32(xi, simde_mm_set1_epi32(INT_MIN));
-    simde__m128i pos_over = simde_mm_andnot_si128(simde_mm_castps_si128(src1), overflow_mask);
-    simde__m128i uimax = simde_mm_set1_epi32(-1);
-    simde__m128i xi_sat_over = simde_mm_blendv_epi8(xi, uimax, pos_over);
-    simde__m128 neg_mask_ps = simde_mm_cmplt_ps(src1, simde_mm_set1_ps(0.0f));
-    simde__m128i neg_mask = simde_mm_castps_si128(neg_mask_ps);
-    simde__m128i xi_nonneg = simde_mm_andnot_si128(neg_mask, xi_sat_over);
-    return simde_mm_andnot_si128(simde_mm_castps_si128(xmm_nan), xi_nonneg);
+    simde__m128 xmm0 = simde_mm_max_ps(src1, simde_mm_set1_ps(0.0f));
+    simde__m128 xmm1 = simde_mm_cmpge_ps(xmm0, simde_mm_set1_ps(2147483648.0f));
+    simde__m128 xmm2 = simde_mm_sub_ps(xmm0, simde_mm_set1_ps(2147483648.0f));
+    xmm0 = simde_mm_blendv_ps(xmm0, xmm2, xmm1);
+    simde__m128i dest = simde_mm_cvttps_epi32(xmm0);
+    simde__m128i mask_min = simde_mm_cmpeq_epi32(dest, simde_mm_set1_epi32(INT_MIN));
+    simde__m128i correction = simde_mm_and_si128(simde_mm_castps_si128(xmm1), simde_mm_set1_epi32(INT_MIN));
+    dest = simde_mm_add_epi32(dest, correction);
+    return simde_mm_or_si128(dest, mask_min);
+}
+
+inline simde__m128 simde_mm_vcmpbfp(simde__m128 a, simde__m128 b)
+{
+    // Take absolute values of both vectors
+    const simde__m128 abs_mask = simde_mm_castsi128_ps(simde_mm_set1_epi32(0x7FFFFFFF));
+    simde__m128 abs_a = simde_mm_and_ps(a, abs_mask);
+    simde__m128 abs_b = simde_mm_and_ps(b, abs_mask);
+
+    // Compare: is |a| > |b|?
+    simde__m128 cmp_result = simde_mm_cmpgt_ps(abs_a, abs_b);
+
+    // vcmpbfp sets result to -1.0 (0xFFFFFFFF) if |a| > |b|, otherwise 0.0
+    // _mm_cmpgt_ps already returns this pattern (all 1s for true, all 0s for false)
+    return cmp_result;
 }
 
 
@@ -739,7 +802,45 @@ inline simde__m128i simde_mm_vsr(simde__m128i a, simde__m128i b)
     return simde_mm_castps_si128(simde_mm_insert_ps(simde_mm_castsi128_ps(simde_mm_srl_epi64(a, b)), simde_mm_castsi128_ps(simde_mm_srl_epi64(simde_mm_srli_si128(a, 4), b)), 0x10));
 }
 
+inline simde__m128i simde_mm_vsl(simde__m128i a, simde__m128i b)
+{
+    b = simde_mm_srli_epi64(simde_mm_slli_epi64(b, 61), 61);
+    return simde_mm_castps_si128(
+        simde_mm_insert_ps(
+            simde_mm_castsi128_ps(simde_mm_sll_epi64(a, b)),
+            simde_mm_castsi128_ps(simde_mm_sll_epi64(simde_mm_slli_si128(a, 4), b)),
+            0x10));
+}
+
+
 #if defined(__aarch64__) || defined(_M_ARM64)
+
+#ifndef __builtin_assume
+#define __builtin_assume(x) do { if (!(x)) __builtin_unreachable(); } while(0)
+#endif
+
+#ifndef __builtin_rotateleft64
+#define __builtin_rotateleft64(x, n) (((x) << (n)) | ((x) >> (64 - (n))))
+#endif
+
+#ifndef __builtin_rotateleft32
+#define __builtin_rotateleft32(x, n) (((x) << (n)) | ((x) >> (32 - (n))))
+#endif
+
+#ifndef __builtin_debugtrap
+#define __builtin_debugtrap() __builtin_trap()
+#endif
+
+inline uint64_t __mulhu(uint64_t a, uint64_t b) {
+    __uint128_t r = (__uint128_t)a * (__uint128_t)b;
+    return r >> 64;
+}
+
+inline int64_t __mulh(int64_t a, int64_t b) {
+    __int128 r = (__int128)a * (__int128)b;
+    return (int64_t)(r >> 64);
+}
+
 inline uint64_t __rdtsc()
 {
     uint64_t ret;

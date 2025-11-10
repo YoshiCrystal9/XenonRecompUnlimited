@@ -3271,15 +3271,15 @@ bool Recompiler::Recompile(
 
 
     case PPC_INST_STVEBX:
-        // Compute 16-byte aligned effective address (as required by STVEX family)
-        println("\t{} = ({}.u32 + {}.u32) & ~0xF;", ea(), r(insn.operands[1]), r(insn.operands[2]));
+		// TODO: vectorize
+		// NOTE: accounting for the full vector reversal here
+		print("\t{} = (", ea());
+		if (insn.operands[1] != 0)
+			print("{}.u32 + ", r(insn.operands[1]));
+		println("{}.u32) & ~0x0;", r(insn.operands[2]));
+		println("\tPPC_STORE_U8(ea, {}.u8[15 - (({} & 0xF))]);", v(insn.operands[0]), ea());
+		break;
 
-        // Compute the index within the vector (big-endian style)
-        println("\tmem::store8({}.u8[15 - (({}.u32 + {}.u32) & 0xF)], base[{}]);",
-            v(insn.operands[0]),
-            r(insn.operands[1]), r(insn.operands[2]),
-            ea());
-        break;
 
 
     case PPC_INST_MTCRF:
@@ -3356,13 +3356,19 @@ bool Recompiler::Recompile(
 
     case PPC_INST_VSLO:
 	case PPC_INST_VSLO128:
-		println("\tsimde_mm_store_si128((simde__m128i*){}.u8, simde_mm_alignr_epi8(simde_mm_load_si128((simde__m128i*){}.u8), simde_mm_load_si128((simde__m128i*){}.u8), ({}.u8[15] & 0xF)));",
-			v(insn.operands[0]),
-			v(insn.operands[2]),
-			v(insn.operands[1]),
-			v(insn.operands[2])
-		);
+		// TODO: vectorize
+		// Rotación por byte: dest.u8[i] = rol8(src.u8[i], shift.u8[i] & 0x7)
+		for (size_t i = 0; i < 16; i++)
+			println(
+				"\t{}.u8[{}] = ({}.u8[{}] << ({}.u8[{}] & 0x7)) | ({}.u8[{}] >> ((8 - ({}.u8[{}] & 0x7)) & 0x7));",
+				v(insn.operands[0]), i,
+				v(insn.operands[1]), i,
+				v(insn.operands[2]), i,
+				v(insn.operands[1]), i,
+				v(insn.operands[2]), i
+			);
 		break;
+
 
 
 
@@ -3414,12 +3420,19 @@ bool Recompiler::Recompile(
 	//todo: finish implementation
     case PPC_INST_VSRO:
 	case PPC_INST_VSRO128:
-		println("\tsimde_mm_store_si128((simde__m128i*){}.u8, simde_mm_alignr_epi8(simde_mm_load_si128((simde__m128i*){}.u8), simde_mm_load_si128((simde__m128i*){}.u8), ({}.u8[15] & 0xF)));",
-			v(insn.operands[0]),
-			v(insn.operands[1]),
-			v(insn.operands[2]),
-			v(insn.operands[2]));
+		// TODO: vectorize
+		// Rotación por byte: dest.u8[i] = ror8(src.u8[i], shift.u8[i] & 0x7)
+		for (size_t i = 0; i < 16; i++)
+			println(
+				"\t{}.u8[{}] = ({}.u8[{}] >> ({}.u8[{}] & 0x7)) | ({}.u8[{}] << ((8 - ({}.u8[{}] & 0x7)) & 0x7));",
+				v(insn.operands[0]), i,
+				v(insn.operands[1]), i,
+				v(insn.operands[2]), i,
+				v(insn.operands[1]), i,
+				v(insn.operands[2]), i
+			);
 		break;
+
 
 	case PPC_INST_VRFIP:
 	case PPC_INST_VRFIP128:
