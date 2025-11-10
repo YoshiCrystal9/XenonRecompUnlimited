@@ -3341,11 +3341,10 @@ bool Recompiler::Recompile(
 
 
     case PPC_INST_VCMPGTSW:
-        println("\tsimd::store_i32({}.s32, simd::cmpgt_i32(simd::load_i32({}.s32), simd::load_i32({}.s32)));",
-            v(insn.operands[0]), v(insn.operands[1]), v(insn.operands[2]));
-        if (strchr(insn.opcode->name, '.'))
-            println("\t{}.setFromMask(simd::load_i32({}.s32), 0xFFFF);", cr(6), v(insn.operands[0]));
-        break;
+		println("\tsimde_mm_store_si128((simde__m128i*){}.u32, simde_mm_cmpgt_epi32(simde_mm_load_si128((simde__m128i*){}.u32), simde_mm_load_si128((simde__m128i*){}.u32)));",
+			v(insn.operands[0]), v(insn.operands[1]), v(insn.operands[2]));
+		break;
+
 
 
     case PPC_INST_VMINSW:
