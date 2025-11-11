@@ -116,7 +116,7 @@ void ReadTable(Image& image, SwitchTable& table)
         ppc::Disassemble(code + 4, table.base + 0x10, insn);
         base = insn.operands[1] << 16;
 
-        ppc::Disassemble(code + 5, table.base + 0x14, insn);
+        ppc::Disassemble(code + 6, table.base + 0x18, insn);
         base += insn.operands[2];
 
         ppc::Disassemble(code + 3, table.base + 0x0C, insn);
@@ -137,7 +137,7 @@ void ReadTable(Image& image, SwitchTable& table)
             ppc::Disassemble(code + 3, table.base + 0x0C, insn);
             base = insn.operands[1] << 16;
 
-            ppc::Disassemble(code + 4, table.base + 0x10, insn);
+            ppc::Disassemble(code + 5, table.base + 0x14, insn);
             base += insn.operands[2];
 
             for (size_t i = 0; i < table.labels.size(); i++)
@@ -322,10 +322,8 @@ int main(int argc, char** argv)
     // uint32_t absoluteSwitch[] =
     // {
     //     PPC_INST_LIS,
-    //     PPC_INST_RLWINM, //en gta 5 y otros juegos, esto es rlwinm
-    //     PPC_INST_ADDI, //en gta 5 y otros juegesog esto es adi
-    //     //PPC_INST_ADDI,
-    //     //PPC_INST_RLWINM,
+    //     PPC_INST_ADDI,
+    //     PPC_INST_RLWINM,
     //     PPC_INST_LWZX,
     //     PPC_INST_MTCTR,
     //     PPC_INST_BCTR,

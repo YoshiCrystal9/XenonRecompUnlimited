@@ -2698,6 +2698,7 @@ bool Recompiler::Recompile(
 
 
     case PPC_INST_VPKUHUM:
+    case PPC_INST_VPKUHUM128:
         // Pack without saturation - use shuffle to select lower bytes
         println("\tsimde_mm_store_si128((simde__m128i*){}.u8, _mm_packus_epi16("
             "simde_mm_and_si128(simde_mm_load_si128((simde__m128i*){}.u16), simde_mm_set1_epi16(0xFF)), "
@@ -3467,6 +3468,38 @@ bool Recompiler::Recompile(
 			v(insn.operands[0]), v(insn.operands[1]), v(insn.operands[2]));
 		if (strchr(insn.opcode->name, '.'))
 			println("\t{}.setFromMask(simde_mm_load_si128((simde__m128i*){}.u32), 0xF);", cr(6), v(insn.operands[0]));
+		break;
+
+	case PPC_INST_VMINUB:
+		println("\tsimde_mm_store_si128((simde__m128i*){}.u8, _mm_min_epu8(simde_mm_load_si128((simde__m128i*){}.u8), simde_mm_load_si128((simde__m128i*){}.u8)));",
+			v(insn.operands[0]), v(insn.operands[1]), v(insn.operands[2]));
+		break;
+
+	case PPC_INST_VMAXUB:
+		println("\tsimde_mm_store_si128((simde__m128i*){}.u8, _mm_max_epu8(simde_mm_load_si128((simde__m128i*){}.u8), simde_mm_load_si128((simde__m128i*){}.u8)));",
+			v(insn.operands[0]), v(insn.operands[1]), v(insn.operands[2]));
+		break;
+
+	case PPC_INST_VSUBUWS:
+		// TODO: vectorize
+		for (size_t i = 0; i < 4; i++)
+		{
+			println("\t{}.s64 = uint64_t({}.u32[{}]) - uint64_t({}.u32[{}]);", 
+				temp(), v(insn.operands[1]), i, v(insn.operands[2]), i);
+			println("\t{}.u32[{}] = {}.s64 > UINT32_MAX ? UINT32_MAX : {}.s64 < 0 ? 0 : {}.s64;", 
+				v(insn.operands[0]), i, temp(), temp(), temp());
+		}
+		break;
+		
+	case PPC_INST_VRLW:
+	case PPC_INST_VRLW128:
+		// Vector rotate left word
+		for (size_t i = 0; i < 4; i++)
+			println("\t{}.u32[{}] = ({}.u32[{}] << ({}.u32[{}] & 0x1F)) | "
+				"({}.u32[{}] >> (32 - ({}.u32[{}] & 0x1F)));",
+				v(insn.operands[0]), i,
+				v(insn.operands[1]), i, v(insn.operands[2]), i,
+				v(insn.operands[1]), i, v(insn.operands[2]), i);
 		break;
 
 
